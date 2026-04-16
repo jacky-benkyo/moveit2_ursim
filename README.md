@@ -61,15 +61,18 @@ Boot up the official Universal Robots Docker image:
 
 source ~/ws_moveit2/install/setup.bash
 ros2 run ur_robot_driver start_ursim.sh -m ur5e
-
-    PolyScope Configuration: Open a browser at http://192.168.56.101:6080/vnc.html. Turn the power ON, release brakes (START), and run the External Control URCap program by pressing Play (▶️).
 ```
+    PolyScope Configuration: Open a browser at http://192.168.56.101:6080/vnc.html. Turn the power ON, release brakes (START), and run the External Control URCap program by pressing Play (▶️).
+
 
 ### Step 2: Launch the ROS 2 Driver (Terminal 2)
 
+Run Dockerized UR simulator with robot model UR5e:
+```bash
+ros2 run ur_robot_driver start_ursim.sh -m ur5e
+```
 Connect ros2_control to the Dockerized simulator:
 ```bash
-
 source ~/ws_moveit2/install/setup.bash
 ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.56.101 launch_rviz:=false
 ```
@@ -90,4 +93,24 @@ Execute the Cartesian path (Terminal 4):
 
 source ~/ws_moveit2/install/setup.bash
 ros2 launch my_moveit_app my_test_run.launch.py
+```
+
+---
+
+## 🧱4.  Advanced Feature: Collision Avoidance 
+
+This repository also includes an advanced demonstration of MoveIt 2's OMPL planner dynamically avoiding obstacles. The C++ node injects a virtual collision object (a table) into the `PlanningSceneInterface` and calculates a collision-free trajectory.
+
+### ⚠️ Important Prerequisite (URSim PolyScope)
+Before executing the trajectory, you **must** ensure the robot is actively listening for commands from the ROS 2 driver:
+1. Open the URSim PolyScope VNC in your browser (`http://192.168.56.101:6080/vnc.html`).
+2. Navigate to **Program > URCaps > External Control**.
+3. Press the **Play (▶️)** button at the bottom of the screen. (The driver terminal should log `Robot ready to receive control commands`).
+
+### Execute the Collision Node (Terminal 4)
+Run the custom C++ node to spawn the virtual table and execute the evasive maneuver:
+
+```bash
+source ~/ws_moveit2/install/setup.bash
+ros2 launch my_moveit_app collision_test_run.launch.py
 ```
