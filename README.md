@@ -74,7 +74,7 @@ source ~/ws_moveit2/install/setup.bash
 ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.56.101 launch_rviz:=false
 ```
 
-###  Step 3: Launch MoveIt 2 and Execute Trajectory (Terminal 3 & 4)
+###  Step 3: Launch MoveIt 2 (Terminal 3)
 
 Start the MoveIt 2 planning context and RViz (Terminal 3):
 ```bash
@@ -83,7 +83,7 @@ source ~/ws_moveit2/install/setup.bash
 ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
 ```
 
-###  Step 4: Launch MoveIt 2 and Execute Trajectory (Terminal 3 & 4)
+###  Step 4: Execute Trajectory (Terminal 4)
 
 Execute the Cartesian path (Terminal 4):
 ```bash
