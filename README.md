@@ -51,7 +51,7 @@ To allow the ROS 2 script to spawn the URSim Docker container without sudo, add 
 sudo usermod -aG docker $USER
 newgrp docker
 ```
-
+---
 
 ## 🚀 Setup & Usage (Universal Robots - UR5e)
 ###  Step 1: Start the URSim Simulator (Terminal 1)
@@ -97,7 +97,7 @@ ros2 launch my_moveit_app my_test_run.launch.py
 
 ---
 
-## 🧱4.  Advanced Feature: Collision Avoidance 
+## 🧱Advanced Feature: Collision Avoidance 
 
 This repository also includes an advanced demonstration of MoveIt 2's OMPL planner dynamically avoiding obstacles. The C++ node injects a virtual collision object (a table) into the `PlanningSceneInterface` and calculates a collision-free trajectory.
 
