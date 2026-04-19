@@ -1,16 +1,46 @@
-# ROS 2 MoveIt 2: Industrial Robot Control Architecture
+# ROS 2 MoveIt 2 Universal Robots (UR5e) Simulation
 
-This repository demonstrates a robust, hardware-abstracted motion planning architecture using **ROS 2 (Humble)** and **MoveIt 2**. It showcases how the exact same C++ client application can control a fully simulated industrial robotic arm (via Official URSim Docker) and seamlessly migrate to a different robot brand (Yaskawa Motoman) using fake hardware.
+This repository provides a complete ROS 2 Humble environment for controlling a Universal Robots UR5e in simulation (URSim) using MoveIt 2. It includes advanced demonstrations of collision avoidance.robot brand (Yaskawa Motoman) using fake hardware.
 
 ## 🏗️ System Architecture
 The system adopts a 3-Terminal decoupled architecture:
 1. **Body (Hardware/Simulator):** The physical robot or Dockerized URSim.
-2. **Nervous System (Driver):** `ros2_control` hardware interfaces (`ur_robot_driver` / `motoman_robot_driver`).
+2. **Nervous System (Driver):** `ros2_control` hardware interfaces (`ur_robot_driver`).
 3. **Brain (MoveIt 2 & Client):** Path planning, collision checking, and our custom C++ execution node.
 
 ---
+##  Quick Start for Windows Users (Recommended)
 
-## ⚙️ Installation & Workspace Setup
+The easiest way to run this project is using VS Code Dev Containers. This method handles all dependencies (ROS 2, MoveIt 2, Drivers) automatically inside a Docker container.
+Prerequisites
+
+    Docker Desktop: Download here.
+
+    VS Code: Download here.
+
+    Dev Containers Extension: Search for "Dev Containers" in the VS Code extensions marketplace and install it.
+
+Setup Instructions
+
+### 1. open a terminal / powershell terminal and clone the Repository:
+```bash
+
+    git clone https://github.com/your-username/your-repo-name.git
+```
+
+### 2. Open in VS Code: 
+Open the folder in VS Code.
+
+### 3. Reopen in Container: 
+A notification will appear in the bottom right corner. Click "Reopen in Container".
+
+        Note: The first build may take several minutes.
+
+### 4. Terminal Ready: 
+Once the build is complete, your VS Code terminal is already inside a Linux environment with ROS 2 pre-installed.    
+---
+
+## ⚙️ Installation & Workspace Setup in Ubuntu Environment
 
 ### 1. Clone Required Repositories
 Create a ROS 2 workspace and clone this application along with the official Universal Robots driver.
@@ -54,6 +84,7 @@ newgrp docker
 ---
 
 ## 🚀 Setup & Usage (Universal Robots - UR5e)
+Regardless of whether you use the Dev Container or a native Linux install, follow these steps to execute the simulation.
 ###  Step 1: Start the URSim Simulator (Terminal 1)
 
 Boot up the official Universal Robots Docker image:
