@@ -14,11 +14,10 @@ The system adopts a 3-Terminal decoupled architecture:
 The easiest way to run this project is using VS Code Dev Containers. This method handles all dependencies (ROS 2, MoveIt 2, Drivers) automatically inside a Docker container.
 Prerequisites
 
-    Docker Desktop: Download here.
+1. **Docker Desktop:** [Download here](https://www.docker.com/products/docker-desktop/).
+2. **VS Code:** [Download here](https://code.visualstudio.com/).
 
-    VS Code: Download here.
-
-    Dev Containers Extension: Search for "Dev Containers" in the VS Code extensions marketplace and install it.
+Dev Containers Extension: Search for "Dev Containers" in the VS Code extensions marketplace and install it.
 
 Setup Instructions
 
@@ -34,7 +33,7 @@ Open the folder in VS Code.
 ### 3. Reopen in Container: 
 A notification will appear in the bottom right corner. Click "Reopen in Container".
 
-        Note: The first build may take several minutes.
+Note: The first build may take several minutes.
 
 ### 4. Terminal Ready: 
 Once the build is complete, your VS Code terminal is already inside a Linux environment with ROS 2 pre-installed.    
