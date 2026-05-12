@@ -8,6 +8,7 @@ The system adopts a 3-Terminal decoupled architecture:
 2. **Nervous System (Driver):** `ros2_control` hardware interfaces (`ur_robot_driver`).
 3. **Brain (MoveIt 2 & Client):** Path planning, collision checking, and our custom C++ execution node.
 
+![Architecture_Diagram](images/Architecture_v1.jpeg)
 ---
 ##  Quick Start for Windows Users (Recommended)
 
