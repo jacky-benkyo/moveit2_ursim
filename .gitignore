@@ -1,0 +1,15 @@
+# ROS 2 Workspace Build Files
+build/
+install/
+log/
+*.log
+
+# Python
+_pycache_/
+*.pyc
+
+# C++ / OS
+.vscode/
+*.o
+*.so
+.DS_Store
