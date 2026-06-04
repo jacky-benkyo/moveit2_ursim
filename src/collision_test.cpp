@@ -6,6 +6,7 @@
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <shape_msgs/msg/solid_primitive.hpp>
 #include <thread>
+#include <vector>
 
 int main(int argc, char ** argv)
 {
@@ -15,8 +16,12 @@ int main(int argc, char ** argv)
   rclcpp::NodeOptions node_options;
   node_options.automatically_declare_parameters_from_overrides(true);
   auto node = std::make_shared<rclcpp::Node>("ur_collision_check", node_options);
+  
+  //2. Declare ROS2 parameters
+  node->declare_parameter<double>("table_x_pose", 0.6);
+  node->declare_parameter<double>("table_z_pose", -0.05);
 
-  // 2. Create Spinner thread), enusre the action/suscribtion executed
+  // 3. Create Spinner thread), enusre the action/suscribtion executed
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
   std::thread spinner([&executor]() { executor.spin(); });
@@ -28,6 +33,14 @@ int main(int argc, char ** argv)
 
     // Instantiate a PlanningSceneInterface object to interact with the environment
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+
+    //4. Read Paramters
+    double table_x = 0.6;
+    double table_z = -0.05;
+    node->get_parameter("table_x_pose", table_x);
+    node->get_parameter("table_z_pose", table_z);
+
+    RCLCPP_INFO(node->get_logger(), "Loaded parameter - Table X: %f, Table Z: %f", table_x, table_z);
 
   // Define a CollisionObject message
     moveit_msgs::msg::CollisionObject collision_object;
@@ -45,15 +58,15 @@ int main(int argc, char ** argv)
     // Define the pose (position and orientation) of the table relative to the frame_id
     geometry_msgs::msg::Pose table_pose;
     table_pose.orientation.w = 1.0;
-    table_pose.position.x = 0.6; // 0.4 b4
+    table_pose.position.x = table_x; // 0.4 b4
     table_pose.position.y = 0.0;
-    table_pose.position.z = -0.05; // 0.2 b4
+    table_pose.position.z = table_z; // 0.2 b4
 
     // Add the shape and pose to the collision object
     collision_object.primitives.push_back(primitive);
     collision_object.primitive_poses.push_back(table_pose);
     collision_object.operation = collision_object.ADD;
-
+    
     // Push the collision object into a vector and apply it to the planning scene
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
     collision_objects.push_back(collision_object);
@@ -66,9 +79,18 @@ int main(int argc, char ** argv)
     planning_scene_interface.applyCollisionObject(collision_object);
 
     // Apply the object directly
-  
+         // Apply the object synchronously to the planning scene
+    RCLCPP_INFO(node->get_logger(), "Table applied to scene at dynamic coordinates.");
+
+    RCLCPP_INFO(node->get_logger(), "Waiting 5 seconds... You can run 'ros2 param set' now in another terminal!");
+    rclcpp::sleep_for(std::chrono::seconds(5));
+    
+    // Verify X position 
+    node->get_parameter("table_x_pose", table_x);
+    RCLCPP_INFO(node->get_logger(), "Executing plan with final Table X: %f", table_x);
+
   //log info
-  RCLCPP_INFO(node->get_logger(), "Table added. Initializing motion planning for ur_manipulator");
+  //RCLCPP_INFO(node->get_logger(), "Table added. Initializing motion planning for ur_manipulator");
   
   // define Pose
   geometry_msgs::msg::Pose target_pose;
@@ -86,7 +108,7 @@ int main(int argc, char ** argv)
     RCLCPP_INFO(node->get_logger(), "Planning success, executing motion ...");
     move_group.execute(my_plan);
   } else {
-    RCLCPP_ERROR(node->get_logger(), "Planning failed!");
+    RCLCPP_ERROR(node->get_logger(), "Planning failed! Path blocked or unreachable.");
   }
 
   
