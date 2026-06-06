@@ -66,4 +66,21 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+#gtest
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  
+  # 1. Declare a test 
+  ament_add_gtest(test_collision_param test/test_collision_param.cpp)
+  
+  # 2. Link test to rclcpp
+  ament_target_dependencies(test_collision_param
+    moveit_ros_planning_interface
+    rclcpp
+    geometry_msgs
+    moveit_msgs
+    shape_msgs
+  )
+endif()
+
 ament_package()
