@@ -8,6 +8,13 @@
 #include <thread>
 #include <vector>
 
+
+// Limit checker logic for verification
+//Indicate the caller must use the result, otherwise complier error
+[[nodiscard]] bool verifyTableSafety(double x_pose) {
+  return x_pose >= 0.3;
+}
+
 int main(int argc, char ** argv)
 {
 
@@ -21,7 +28,8 @@ int main(int argc, char ** argv)
   node->declare_parameter<double>("table_x_pose", 0.6);
   node->declare_parameter<double>("table_z_pose", -0.05);
 
-  // 3. Create Spinner thread), enusre the action/suscribtion executed
+  // 3. Initialize a multi-threaded executor to handle parameter updates concurrently 
+  //(Spinner thread), enusre the action/suscribtion executed
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
   std::thread spinner([&executor]() { executor.spin(); });
@@ -34,12 +42,19 @@ int main(int argc, char ** argv)
     // Instantiate a PlanningSceneInterface object to interact with the environment
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
-    //4. Read Paramters
+    //4. Fetch the paramters at runtime
     double table_x = 0.6;
     double table_z = -0.05;
     node->get_parameter("table_x_pose", table_x);
     node->get_parameter("table_z_pose", table_z);
 
+    // Runtime safety verification block (Safety Interlock)
+    if (!verifyTableSafety(table_x)) {
+    RCLCPP_FATAL(node->get_logger(), "EMERGENCY INTERLOCK TRIGGERED: Parameter 'table_x_pose' (%f) is too close to robot base! Aborting setup.", table_x);
+    rclcpp::shutdown();
+    return -1; 
+    }
+    RCLCPP_INFO(node->get_logger(), "Safety check passed. Table X: %f", table_x);
     RCLCPP_INFO(node->get_logger(), "Loaded parameter - Table X: %f, Table Z: %f", table_x, table_z);
 
   // Define a CollisionObject message
