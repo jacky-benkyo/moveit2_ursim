@@ -15,6 +15,23 @@
   return x_pose >= 0.3;
 }
 
+// Cartesian path planning routine
+[[nodiscard]] double planCartesianTrajectory(
+  moveit::planning_interface::MoveGroupInterface& move_group,
+  const std::vector<geometry_msgs::msg::Pose>& waypoints,
+  moveit_msgs::msg::RobotTrajectory& trajectory) 
+{
+  // Resolution check size: 1 cm step size for precision path interpolation
+  const double eef_step = 0.01; 
+  
+  // Singularity safety limit: 0.0 disables checking, a small value restricts sudden joint jumps
+  const double jump_threshold = 0.0; 
+
+  // Compute the path. It returns the fraction of the path successfully calculated (0.0 to 1.0)
+  double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+  return fraction;
+}
+
 int main(int argc, char ** argv)
 {
 
@@ -29,20 +46,20 @@ int main(int argc, char ** argv)
   node->declare_parameter<double>("table_z_pose", -0.05);
 
   // 3. Initialize a multi-threaded executor to handle parameter updates concurrently 
-  //(Spinner thread), enusre the action/suscribtion executed
+  //(Spinner thread), ensure the action/subscription executed
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
   std::thread spinner([&executor]() { executor.spin(); });
   spinner.detach(); // Detach the thread to run independently in the background
 
-  //setup MoveGroupInterface (MUST match the SRDF group name: "ur_manipulator")
+  //Setup MoveGroupInterface (MUST match the SRDF group name: "ur_manipulator")
   using moveit::planning_interface::MoveGroupInterface;
   auto move_group = MoveGroupInterface(node, "ur_manipulator");
 
     // Instantiate a PlanningSceneInterface object to interact with the environment
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
-    //4. Fetch the paramters at runtime
+    //4. Fetch the parameters at runtime
     double table_x = 0.6;
     double table_z = -0.05;
     node->get_parameter("table_x_pose", table_x);
@@ -73,9 +90,9 @@ int main(int argc, char ** argv)
     // Define the pose (position and orientation) of the table relative to the frame_id
     geometry_msgs::msg::Pose table_pose;
     table_pose.orientation.w = 1.0;
-    table_pose.position.x = table_x; // 0.4 b4
+    table_pose.position.x = table_x; 
     table_pose.position.y = 0.0;
-    table_pose.position.z = table_z; // 0.2 b4
+    table_pose.position.z = table_z;
 
     // Add the shape and pose to the collision object
     collision_object.primitives.push_back(primitive);
@@ -93,10 +110,10 @@ int main(int argc, char ** argv)
     // Apply the object synchronously (blocks until MoveIt confirms it has received the object)
     planning_scene_interface.applyCollisionObject(collision_object);
 
-    // Apply the object directly
-         // Apply the object synchronously to the planning scene
+   // Apply the object synchronously to the planning scene
     RCLCPP_INFO(node->get_logger(), "Table applied to scene at dynamic coordinates.");
-
+   
+    // Optional: Wait for 5 seconds to let RViz visually render the table and allow runtime param testing
     RCLCPP_INFO(node->get_logger(), "Waiting 5 seconds... You can run 'ros2 param set' now in another terminal!");
     rclcpp::sleep_for(std::chrono::seconds(5));
     
@@ -104,26 +121,59 @@ int main(int argc, char ** argv)
     node->get_parameter("table_x_pose", table_x);
     RCLCPP_INFO(node->get_logger(), "Executing plan with final Table X: %f", table_x);
 
-  //log info
-  //RCLCPP_INFO(node->get_logger(), "Table added. Initializing motion planning for ur_manipulator");
+  // ===========================================================================
+  // MOTION STEP 1: COMPUTE & EXECUTE CARTESIAN LINEAR PATH (Move STRAIGHT 10cm from Point A to Point B )
+  // ===========================================================================
+  std::vector<geometry_msgs::msg::Pose> linear_waypoints;
+  
+  // Step 1: Query and log current starting pose profile
+  geometry_msgs::msg::Pose current_pose = move_group.getCurrentPose().pose;
+  linear_waypoints.push_back(current_pose);
+
+  // Step 2: Define and append linear target displacement (FIXED: Resolved duplicate declaration variable mismatch)
+  geometry_msgs::msg::Pose target_pose = current_pose;
+  target_pose.position.z += 0.1; // Offset target 10cm straight up on the vertical Z-axis
+  linear_waypoints.push_back(target_pose);
+
+  // Step 3: Compute straight-line interpolation path
+  moveit_msgs::msg::RobotTrajectory cartesian_trajectory;
+  double fraction = planCartesianTrajectory(move_group, linear_waypoints, cartesian_trajectory);
+  
+  // Step 4: Validate completion percentage against safety thresholds before triggering actuators
+  if (fraction >= 0.9) {
+    RCLCPP_INFO(node->get_logger(), "Step 1: Executing Linear Retraction (A -> B)...");
+    move_group.execute(cartesian_trajectory);
+  } else {
+    RCLCPP_ERROR(node->get_logger(), "Linear path unsafe! Aborting sequence.");
+    rclcpp::shutdown();
+    return -1;
+  }
+
+  // Pause 
+  rclcpp::sleep_for(std::chrono::milliseconds(500));
+
+  // ===========================================================================
+  // MOTION STEP 2: RE-PLAN & EXECUTE FREE-SPACE PATH (Move from Point B to Point C)
+  // ===========================================================================
+    move_group.setStartStateToCurrentState();
   
   // define Pose
-  geometry_msgs::msg::Pose target_pose;
-  target_pose.orientation.w = 1.0;
-  target_pose.position.x = 0.3;
-  target_pose.position.y = -0.2;
-  target_pose.position.z = 0.5;
-  move_group.setPoseTarget(target_pose);
+  geometry_msgs::msg::Pose target_pose_2;
+  target_pose_2.orientation.w = 1.0;
+  target_pose_2.position.x = 0.3;
+  target_pose_2.position.y = -0.2;
+  target_pose_2.position.z = 0.5;
+  move_group.setPoseTarget(target_pose_2);
 
-  // path planning
+ // Compute the Open Motion Planning Library plan dynamically *while standing at Point B*
   moveit::planning_interface::MoveGroupInterface::Plan my_plan;
   bool success = (move_group.plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
   if(success) {
-    RCLCPP_INFO(node->get_logger(), "Planning success, executing motion ...");
+    RCLCPP_INFO(node->get_logger(), "Motion Step 2: Planning success, executing Free-space Transit (Point B -> Point C)...");
     move_group.execute(my_plan);
   } else {
-    RCLCPP_ERROR(node->get_logger(), "Planning failed! Path blocked or unreachable.");
+    RCLCPP_ERROR(node->get_logger(), "Motion Step 2: Planning failed! Path blocked or unreachable.");
   }
 
   
