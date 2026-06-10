@@ -72,17 +72,30 @@ endif()
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   
-  # 1. Declare a test 
-  ament_add_gtest(test_collision_param test/test_collision_param.cpp)
-  
-  # 2. Link test to rclcpp
-  ament_target_dependencies(test_collision_param
+  # 1. Unit Test Suite
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/unit_test_collision_param.cpp")
+  ament_add_gtest(unit_test_collision_param test/unit_test_collision_param.cpp)
+  ament_target_dependencies(unit_test_collision_param
+    rclcpp
+    geometry_msgs
+    moveit_msgs
+    moveit_ros_planning_interface
+  )
+  target_link_libraries(unit_test_collision_param gtest)
+  endif()
+
+  # 2. Integration Test Suite
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/integration_test_moveit.cpp")
+  ament_add_gtest(integration_test_moveit test/integration_test_moveit.cpp)
+  ament_target_dependencies(integration_test_moveit
     moveit_ros_planning_interface
     rclcpp
     geometry_msgs
     moveit_msgs
     shape_msgs
   )
-endif()
+  target_link_libraries(integration_test_moveit gtest)
+  endif()
 
+endif()
 ament_package()
