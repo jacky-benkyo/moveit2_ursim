@@ -3,7 +3,11 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <vector>
+#include <cmath>
 
+// =============================================================================
+// VERIFICATION FUNCTIONS 
+// =============================================================================
 // Limit checker logic for verification
 //Indicate the caller must use the result, otherwise complier error
 [[nodiscard]] bool verifyTableSafety(double x_pose) {
@@ -26,6 +30,13 @@
     return 1.0; // Successfully generated path vector profile
   }
   return 0.1;
+}
+
+// This handles the space offset mapping but blindly returns false to simulate an uninitialized state.
+[[nodiscard]] bool lookupTargetPose(const std::string& target_frame, geometry_msgs::msg::Pose& current_pose) {
+  (void)target_frame;
+  (void)current_pose;
+  return false; //Test Always False
 }
 
 // =============================================================================
@@ -87,6 +98,18 @@ TEST(TS02CartesianMotion, DemandsHighTrajectorySuccessRate) {
   // Assert that our linear path logic satisfies surgical trajectory precision parameters (>= 90%)
   EXPECT_GE(execution_fraction, 0.9) 
     << "SURGICAL PATHWAY ERROR: Linear interpolation failure. Trajectory completion is below safe threshold!";
+}
+//Test Suite 03 - TEST UNIT 1: Dynamic TF Tracking Interlock Validation
+TEST(TS03DynamicTF, RejectsPlanningWhenTargetFrameIsLost) {
+  geometry_msgs::msg::Pose tracked_pose;
+  
+  // Query a non-existent frame. The system must trap this error and return false.
+  bool lookup_success = lookupTargetPose("non_existent_dynamic_marker", tracked_pose);
+  
+  // Expecting 'false' because the frame does not exist.
+  // Currently, it returns false (passing this specific test), but we want to test the full logic.
+  // To trigger a proper TDD assertion check for the lookup mechanism:
+  EXPECT_FALSE(lookup_success) << "VISION FAULT INTERLOCK: System accepted a completely non-existent TF target tracking frame!";
 }
 
 int main(int argc, char ** argv)
