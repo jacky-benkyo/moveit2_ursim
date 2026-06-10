@@ -7,7 +7,9 @@
 #include <shape_msgs/msg/solid_primitive.hpp>
 #include <thread>
 #include <vector>
-
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // Limit checker logic for verification
 //Indicate the caller must use the result, otherwise complier error
@@ -52,18 +54,23 @@ int main(int argc, char ** argv)
   std::thread spinner([&executor]() { executor.spin(); });
   spinner.detach(); // Detach the thread to run independently in the background
 
-  //Setup MoveGroupInterface (MUST match the SRDF group name: "ur_manipulator")
+  //4. Setup parameters 
+  //i) Setup TF2 static background buffers inside CPU memory
+  auto tf_buffer = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
+
+  //ii) Setup MoveGroupInterface (MUST match the SRDF group name: "ur_manipulator")
   using moveit::planning_interface::MoveGroupInterface;
   auto move_group = MoveGroupInterface(node, "ur_manipulator");
 
-    // Instantiate a PlanningSceneInterface object to interact with the environment
-    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+  // Instantiate a PlanningSceneInterface object to interact with the environment
+  moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
-    //4. Fetch the parameters at runtime
-    double table_x = 0.6;
-    double table_z = -0.05;
-    node->get_parameter("table_x_pose", table_x);
-    node->get_parameter("table_z_pose", table_z);
+  //5. Fetch the parameters at runtime
+  double table_x = 0.6;
+  double table_z = -0.05;
+  node->get_parameter("table_x_pose", table_x);
+  node->get_parameter("table_z_pose", table_z);
 
     // Runtime safety verification block (Safety Interlock)
     if (!verifyTableSafety(table_x)) {
@@ -73,7 +80,8 @@ int main(int argc, char ** argv)
     }
     RCLCPP_INFO(node->get_logger(), "Safety check passed. Table X: %f", table_x);
     RCLCPP_INFO(node->get_logger(), "Loaded parameter - Table X: %f, Table Z: %f", table_x, table_z);
-
+  
+  // 6.Setup Collision Object  
   // Define a CollisionObject message
     moveit_msgs::msg::CollisionObject collision_object;
     collision_object.header.frame_id = move_group.getPlanningFrame();
@@ -151,13 +159,72 @@ int main(int argc, char ** argv)
 
   // Pause 
   rclcpp::sleep_for(std::chrono::milliseconds(500));
+   
+  // ===========================================================================
+  // MOTION STEP 2: DYNAMIC TF2 TRACKING TRANSIT (Point B -> Dynamic Target Object C)
+  // ===========================================================================
+  move_group.setStartStateToCurrentState();
+
+  // Create an explicit geometry message to receive the converted tracking values
+  geometry_msgs::msg::Pose ptBtoptC_target_pose;
+  bool tf_lookup_success = false;
+  
+  // Safety watchdog: attempt to parse the dynamic coordinate from the camera system
+  try {
+    // Look up the transform matrix from base_link to dummy vision tracking marker frame
+    geometry_msgs::msg::TransformStamped transform_stamped;
+    
+    RCLCPP_INFO(node->get_logger(), "TF2 Watchdog: Querying live position of 'dynamic_target_object'...");
+    
+    // Fetch latest coordinate within a strict 200ms timeout window
+    transform_stamped = tf_buffer->lookupTransform(
+      move_group.getPlanningFrame(), // Typically "base_link"
+      "dynamic_target_object",       // The target frame moving dynamically in space
+      tf2::TimePointZero,            // Fetch the absolute newest available message frame
+      tf2::durationFromSec(0.2)      // 200 milliseconds timeout protection gate
+    );
+
+    // Map the stamped transform data in buffer directly into MoveIt target geometry structure
+    ptBtoptC_target_pose.position.x = transform_stamped.transform.translation.x;
+    ptBtoptC_target_pose.position.y = transform_stamped.transform.translation.y;
+    ptBtoptC_target_pose.position.z = transform_stamped.transform.translation.z;
+    ptBtoptC_target_pose.orientation = transform_stamped.transform.rotation;
+    
+    tf_lookup_success = true;
+    RCLCPP_INFO(node->get_logger(), "TF2 Lock Secured! Target found at X:%f, Y:%f, Z:%f", 
+                ptBtoptC_target_pose.position.x, ptBtoptC_target_pose.position.y, ptBtoptC_target_pose.position.z);
+                
+  } catch (const tf2::TransformException & ex) {
+    // Safety Interlock: Trigger warning and block execution if the target frame is lost or dropped
+    RCLCPP_ERROR(node->get_logger(), "VISION FAULT INTERLOCK TRIGGERED: Could not resolve target frame! Error: %s", ex.what());
+  }
+
+  // Actuator execution protection gate
+  if (tf_lookup_success) {
+    move_group.setPoseTarget(ptBtoptC_target_pose);
+
+    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    bool success = (move_group.plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
+
+    if(success) {
+      RCLCPP_INFO(node->get_logger(), "Motion Step 2: Planning success, executing Free-space transit to dynamic target object...");
+      move_group.execute(my_plan);
+    } else {
+      RCLCPP_ERROR(node->get_logger(), "Motion Step 2: Planning failed! Path to dynamic target object blocked.");
+    }
+  } else {
+    RCLCPP_FATAL(node->get_logger(), "CRITICAL PIPELINE ABORT: Execution blocked due to missing transform vectors.");
+  }
+
+  // Pause 
+  rclcpp::sleep_for(std::chrono::milliseconds(500));
 
   // ===========================================================================
-  // MOTION STEP 2: RE-PLAN & EXECUTE FREE-SPACE PATH (Move from Point B to Point C)
+  // MOTION STEP 3: RE-PLAN & EXECUTE FREE-SPACE PATH (Move from Point C to Point D)
   // ===========================================================================
     move_group.setStartStateToCurrentState();
   
-  // define Pose
+  // Define Pose
   geometry_msgs::msg::Pose target_pose_2;
   target_pose_2.orientation.w = 1.0;
   target_pose_2.position.x = 0.3;
@@ -165,15 +232,15 @@ int main(int argc, char ** argv)
   target_pose_2.position.z = 0.5;
   move_group.setPoseTarget(target_pose_2);
 
- // Compute the Open Motion Planning Library plan dynamically *while standing at Point B*
+ // Compute the Open Motion Planning Library plan dynamically *while standing at Point C*
   moveit::planning_interface::MoveGroupInterface::Plan my_plan;
   bool success = (move_group.plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
   if(success) {
-    RCLCPP_INFO(node->get_logger(), "Motion Step 2: Planning success, executing Free-space Transit (Point B -> Point C)...");
+    RCLCPP_INFO(node->get_logger(), "Motion Step 3: Planning success, executing Free-space Transit (Point C -> Point D)...");
     move_group.execute(my_plan);
   } else {
-    RCLCPP_ERROR(node->get_logger(), "Motion Step 2: Planning failed! Path blocked or unreachable.");
+    RCLCPP_ERROR(node->get_logger(), "Motion Step 3: Planning failed! Path blocked or unreachable.");
   }
 
   
