@@ -244,9 +244,9 @@ int main(int argc, char ** argv)
   // Define Target Position 2
   geometry_msgs::msg::Pose target_pose_2;
   target_pose_2.orientation.w = 1.0;
-  target_pose_2.position.x = home_x_pose;
-  target_pose_2.position.y = home_y_pose;
-  target_pose_2.position.z = home_z_pose;
+  target_pose_2.position.x = home_x;
+  target_pose_2.position.y = home_y;
+  target_pose_2.position.z = home_z;
   move_group.setPoseTarget(target_pose_2);
 
  // Compute the Open Motion Planning Library plan dynamically *while standing at Point C*
