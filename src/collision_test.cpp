@@ -46,6 +46,10 @@ int main(int argc, char ** argv)
   //2. Declare ROS2 parameters
   node->declare_parameter<double>("table_x_pose", 0.6);
   node->declare_parameter<double>("table_z_pose", -0.05);
+  node->declare_parameter<double>("retraction_height", 0.10);  // Motion Step 3, default moving distance 10 cm 
+  node->declare_parameter<double>("home_x_pose", 0.3);         // Motion Step 3, Home Position X 
+  node->declare_parameter<double>("home_y_pose", -0.2);        // Motion Step 3, Home Position Y
+  node->declare_parameter<double>("home_z_pose", 0.5);         // Motion Step 3, Home Position Z
 
   // 3. Initialize a multi-threaded executor to handle parameter updates concurrently 
   //(Spinner thread), ensure the action/subscription executed
@@ -139,8 +143,12 @@ int main(int argc, char ** argv)
   linear_waypoints.push_back(current_pose);
 
   // Step 2: Define and append linear target displacement (FIXED: Resolved duplicate declaration variable mismatch)
+  double retraction_height = 0.10;
+  node->get_parameter("retraction_height", retraction_height);
+  RCLCPP_INFO(node->get_logger(), "Using parametric retraction height: %f m", retraction_height);
+   
   geometry_msgs::msg::Pose target_pose = current_pose;
-  target_pose.position.z += 0.1; // Offset target 10cm straight up on the vertical Z-axis
+  target_pose.position.z += retraction_height; // Offset input straight up on the vertical Z-axis
   linear_waypoints.push_back(target_pose);
 
   // Step 3: Compute straight-line interpolation path
@@ -224,12 +232,21 @@ int main(int argc, char ** argv)
   // ===========================================================================
     move_group.setStartStateToCurrentState();
   
-  // Define Pose
+  //Define Home Position
+  double home_x = 0.3;
+  double home_y = -0.2;
+  double home_z = 0.5;
+  node->get_parameter("home_x_pose", home_x);
+  node->get_parameter("home_y_pose", home_y);
+  node->get_parameter("home_z_pose", home_z);
+  RCLCPP_INFO(node->get_logger(), "Get Home position: [%f, %f, %f]", home_x, home_y, home_z);
+
+  // Define Target Position 2
   geometry_msgs::msg::Pose target_pose_2;
   target_pose_2.orientation.w = 1.0;
-  target_pose_2.position.x = 0.3;
-  target_pose_2.position.y = -0.2;
-  target_pose_2.position.z = 0.5;
+  target_pose_2.position.x = home_x_pose;
+  target_pose_2.position.y = home_y_pose;
+  target_pose_2.position.z = home_z_pose;
   move_group.setPoseTarget(target_pose_2);
 
  // Compute the Open Motion Planning Library plan dynamically *while standing at Point C*
