@@ -21,7 +21,7 @@
 // Dedicated Integration Test Suite
 // Test Suite 01 - TEST UNIT 1: Verify the loader YAML Parameters
 TEST(TS01ParametersCheck, VerifyParameterLoading) {
-  // 1. Dynamically locate the installation share folder for our config/motion_params.yaml
+  // 1. Locate the path of the installation share folder for the config/motion_params.yaml
   std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("my_moveit_app");
   std::string yaml_path = pkg_share_dir + "/config/motion_params.yaml";
 
@@ -30,22 +30,30 @@ TEST(TS01ParametersCheck, VerifyParameterLoading) {
   node_options.automatically_declare_parameters_from_overrides(true);
   node_options.arguments({"--ros-args", "--params-file", yaml_path});
 
-  // 3. Instantiate a standalone isolated test node dedicated to parsing parameters
+  // 3. Create a standalone isolated test node dedicated to check the parsing parameters
   auto test_param_node = std::make_shared<rclcpp::Node>("ur_collision_check", node_options);
 
   double retraction_height = 0.0;
+  double home_x_pose = 0.0;
+  double home_y_pose = 0.0;
   double home_z_pose = 0.0;
 
   // 4. Extract parameters from the loaded server storage pool
   bool check_retraction = test_param_node->get_parameter("retraction_height", retraction_height);
+  bool check_home_x = test_param_node->get_parameter("home_x_pose", home_x_pose);
+  bool check_home_y = test_param_node->get_parameter("home_y_pose", home_y_pose);
   bool check_home_z = test_param_node->get_parameter("home_z_pose", home_z_pose);
 
   // Assert A: Confirm parameter keys exist within the parsed configuration space
   ASSERT_TRUE(check_retraction) << "PARAM ERROR: 'retraction_height' was not discovered on the node parameter server!";
+  ASSERT_TRUE(check_home_x) << "PARAM ERROR: 'home_x_pose' was not discovered on the node parameter server!";
+  ASSERT_TRUE(check_home_y) << "PARAM ERROR: 'home_y_pose' was not discovered on the node parameter server!";
   ASSERT_TRUE(check_home_z) << "PARAM ERROR: 'home_z_pose' was not discovered on the node parameter server!";
 
-  // Assert B: Cross-verify values precisely match the metrics specified in motion_params.yaml (0.15m and 0.6m)
+  // Assert B: Cross-verify values precisely (0.00001.) match the metrics specified in motion_params.yaml 
   EXPECT_NEAR(retraction_height, 0.15, 1e-5) << "VALUE MISMATCH: 'retraction_height' loaded but the value is incorrect!";
+  EXPECT_NEAR(home_x_pose, 0.4, 1e-5) << "VALUE MISMATCH: 'home_x_pose' loaded but the value is incorrect!";
+  EXPECT_NEAR(home_y_pose, -0.3, 1e-5) << "VALUE MISMATCH: 'home_y_pose' loaded but the value is incorrect!";
   EXPECT_NEAR(home_z_pose, 0.6, 1e-5) << "VALUE MISMATCH: 'home_z_pose' loaded but the value is incorrect!";
 }
 
