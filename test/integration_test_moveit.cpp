@@ -3,6 +3,8 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <vector>
+#include <string>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 // Simulates the behavior of an incomplete Cartesian planner.
 // Map function mapping directly to production implementation signature
@@ -17,6 +19,36 @@
 }
 
 // Dedicated Integration Test Suite
+// Test Suite 01 - TEST UNIT 1: Verify the loader YAML Parameters
+TEST(TS01ParametersCheck, VerifyParameterLoading) {
+  // 1. Dynamically locate the installation share folder for our config/motion_params.yaml
+  std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("my_moveit_app");
+  std::string yaml_path = pkg_share_dir + "/config/motion_params.yaml";
+
+  // 2. Inject the parameter file path into the ROS 2 node setup configuration
+  rclcpp::NodeOptions node_options;
+  node_options.automatically_declare_parameters_from_overrides(true);
+  node_options.arguments({"--ros-args", "--params-file", yaml_path});
+
+  // 3. Instantiate a standalone isolated test node dedicated to parsing parameters
+  auto test_param_node = std::make_shared<rclcpp::Node>("ur_collision_check", node_options);
+
+  double retraction_height = 0.0;
+  double home_z_pose = 0.0;
+
+  // 4. Extract parameters from the loaded server storage pool
+  bool check_retraction = test_param_node->get_parameter("retraction_height", retraction_height);
+  bool check_home_z = test_param_node->get_parameter("home_z_pose", home_z_pose);
+
+  // Assert A: Confirm parameter keys exist within the parsed configuration space
+  ASSERT_TRUE(check_retraction) << "PARAM ERROR: 'retraction_height' was not discovered on the node parameter server!";
+  ASSERT_TRUE(check_home_z) << "PARAM ERROR: 'home_z_pose' was not discovered on the node parameter server!";
+
+  // Assert B: Cross-verify values precisely match the metrics specified in motion_params.yaml (0.15m and 0.6m)
+  EXPECT_NEAR(retraction_height, 0.15, 1e-5) << "VALUE MISMATCH: 'retraction_height' loaded but the value is incorrect!";
+  EXPECT_NEAR(home_z_pose, 0.6, 1e-5) << "VALUE MISMATCH: 'home_z_pose' loaded but the value is incorrect!";
+}
+
 // Test Suite 02 - TEST UNIT 2: Cartesian Path Tracking Precision Validation
 TEST(TS02CartesianMotion, DemandsHighTrajectorySuccessRate) {
   // 1. Define a targeted linear waypoint path array

@@ -16,6 +16,7 @@ find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(shape_msgs REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(ament_cmake REQUIRED)
 
 # 2. add executable  
 add_executable(ur_manipulator_node src/moveit_test_UR.cpp)
@@ -93,6 +94,8 @@ if(BUILD_TESTING)
     geometry_msgs
     moveit_msgs
     shape_msgs
+    ament_cmake
+    ament_cmake_python
   )
   target_link_libraries(integration_test_moveit gtest)
   endif()

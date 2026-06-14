@@ -39,5 +39,11 @@ def generate_launch_description():
             params_yaml_path
         ],
     )
+    #Manual Command 
+    #Load yaml file 
+    #ros2 run my_moveit_app ur_collision_check_node --ros-args --params-file src/my_moveit_app/config/motion_params.yaml
+
+    #Adjust individual parameter value (online)
+    #ros2 param set /ur_collision_check retraction_height 0.15
 
     return LaunchDescription([ur_collision_check_node])

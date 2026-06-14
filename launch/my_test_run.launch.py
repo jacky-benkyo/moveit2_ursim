@@ -5,21 +5,21 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     
-    # 1. 繞過 Builder，直接叫系統行 xacro 生成 URDF
+    # 1. Generate URDF via xacro 
     robot_description_content = Command([
         PathJoinSubstitution([FindExecutable(name="xacro")]), " ",
         PathJoinSubstitution([FindPackageShare("ur_description"), "urdf", "ur.urdf.xacro"]),
         " name:=ur ur_type:=ur5e"
     ])
     
-    # 2. 繞過 Builder，直接叫系統行 xacro 生成 SRDF
+    # 2. Generate SRDF via xacro
     robot_description_semantic_content = Command([
         PathJoinSubstitution([FindExecutable(name="xacro")]), " ",
         PathJoinSubstitution([FindPackageShare("ur_moveit_config"), "srdf", "ur.srdf.xacro"]),
         " name:=ur ur_type:=ur5e"
     ])
 
-    # 3. 啟動你粒 Node，精準注入參數
+    # 3. Activate MNode with parameters
     ur_test_node = Node(
         package="my_moveit_app",
         executable="ur_manipulator_node",
